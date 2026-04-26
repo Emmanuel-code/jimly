@@ -1,0 +1,60 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() { return request.auth != null; }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+
+    function isValidMessage(data) {
+      return data.content is string && data.content.size() > 0 && data.content.size() <= 1000
+        && data.createdAt == request.time
+        && data.status in ['unread', 'read']
+        && (!('guessWho' in data) || data.guessWho is bool)
+        && (!('guessNames' in data) || data.guessNames is list)
+        && (!('senderUid' in data) || data.senderUid == request.auth.uid || data.senderUid == null)
+        && (!('senderName' in data) || data.senderName is string)
+        && (!('senderFirstName' in data) || data.senderFirstName is string)
+        && (!('senderPhoto' in data) || data.senderPhoto is string)
+        && (!('senderUsername' in data) || data.senderUsername is string)
+        && (!('mood' in data) || data.mood is string);
+    }
+
+    match /users/{userId} {
+      allow read: if true;
+      allow write: if isOwner(userId);
+
+      match /messages/{messageId} {
+        allow read: if isOwner(userId);
+        allow create: if isValidMessage(incoming()) && !('guessResult' in incoming());
+        allow update: if isOwner(userId) && (
+          // Action: Mark as read
+          (incoming().diff(existing()).affectedKeys().hasOnly(['status'])) ||
+          // Action: Set hint
+          (incoming().diff(existing()).affectedKeys().hasOnly(['hint'])) ||
+          // Action: Set guess result
+          (incoming().diff(existing()).affectedKeys().hasOnly(['guessResult']))
+        );
+        allow delete: if isOwner(userId);
+      }
+    }
+
+    match /usernames/{username} {
+      allow read: if true;
+      allow create: if isSignedIn() && 
+                    incoming().userId == request.auth.uid &&
+                    !exists(/databases/$(database)/documents/usernames/$(username));
+    }
+    
+    match /confessions/{confessionId} {
+      allow read: if true;
+      allow create: if incoming().content is string && incoming().content.size() <= 500 && incoming().createdAt == request.time;
+      allow update: if incoming().diff(existing()).affectedKeys().hasOnly(['likes']);
+    }
+  }
+}

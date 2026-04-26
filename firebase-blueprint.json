@@ -1,0 +1,66 @@
+{
+  "entities": {
+    "user": {
+      "title": "User",
+      "description": "User profile with unique username",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "username": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "currentPrompt": { "type": "string" },
+        "promptVibe": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "username"]
+    },
+    "message": {
+      "title": "Message",
+      "description": "Anonymous message sent to a user",
+      "type": "object",
+      "properties": {
+        "content": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["unread", "read"] },
+        "hint": { "type": "string" },
+        "mood": { "type": "string" },
+        "guessWho": { "type": "boolean" },
+        "guessNames": { "type": "array", "items": { "type": "string" } },
+        "guessResult": { "type": "string", "enum": ["correct", "incorrect"] },
+        "senderUid": { "type": "string" },
+        "senderName": { "type": "string" },
+        "senderFirstName": { "type": "string" },
+        "senderPhoto": { "type": "string" },
+        "senderUsername": { "type": "string" }
+      },
+      "required": ["content", "createdAt", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "user",
+      "description": "Public and private user data"
+    },
+    "/usernames/{username}": {
+      "schema": { "type": "object", "properties": { "userId": { "type": "string" } } },
+      "description": "Mapping of usernames to user IDs for uniqueness"
+    },
+    "/users/{userId}/messages/{messageId}": {
+      "schema": "message",
+      "description": "Private anonymous messages for a user"
+    },
+    "/confessions/{confessionId}": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "content": { "type": "string" },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "category": { "type": "string" },
+          "likes": { "type": "number" }
+        }
+      },
+      "description": "Global public anonymous confessions"
+    }
+  }
+}
